@@ -1,10 +1,8 @@
-from communex.module import Module, endpoint
-from communex.key import generate_keypair
-from keylimiter import TokenBucketLimiter
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import MinMaxScaler
 from math import sqrt
 import datetime
 
@@ -16,12 +14,21 @@ class BTCPricePredictor:
         self.data = pd.read_csv(filepath)
 
     def preprocess_data(self):
-        # Placeholder for additional preprocessing if needed
-        pass
+        # Handle any missing values in the data
+        self.data.dropna(inplace=True)
+        # Create any additional features needed for the model
+        # Assuming 'Timestamp' is the column with the datetime information
+        self.data['Timestamp'] = pd.to_datetime(self.data['Timestamp'])
+        self.data['DayOfWeek'] = self.data['Timestamp'].dt.dayofweek
+        self.data['Hour'] = self.data['Timestamp'].dt.hour
+        # Normalize or scale the data as required for the model
+        scaler = MinMaxScaler()
+        self.data[['Open', 'High', 'Low', 'Close', 'Volume']] = scaler.fit_transform(self.data[['Open', 'High', 'Low', 'Close', 'Volume']])
 
     def train_model(self):
-        X = self.data.drop('Price', axis=1)
-        y = self.data['Price']
+        # Assuming 'Close' is the target variable
+        X = self.data.drop(['Close', 'Timestamp'], axis=1)
+        y = self.data['Close']
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         self.model.fit(self.X_train, self.y_train)
 
@@ -36,8 +43,12 @@ class BTCPricePredictor:
         # Make prediction with the trained model
         # This is a simplified example, in a real-world scenario you would need to preprocess the timestamp
         # and potentially use more features for the prediction
-        features = [datetime.datetime.strptime(future_timestamp, '%Y-%m-%d %H:%M:%S').timestamp()]
-        return self.model.predict([features])[0]
+        future_data = {
+            'DayOfWeek': future_timestamp.weekday(),
+            'Hour': future_timestamp.hour,
+            # Add other features used in the model
+        }
+        return self.model.predict([future_data])[0]
 
 class Miner(Module):
     """
@@ -47,7 +58,7 @@ class Miner(Module):
     def __init__(self):
         self.predictor = BTCPricePredictor()
         # Load and preprocess the data
-        self.predictor.load_data('path_to_preprocessed_csv_file.csv')
+        self.predictor.load_data('/home/ubuntu/BITSTAMP_BTCUSD_1D.csv')  # Update with the actual file path
         self.predictor.preprocess_data()
         # Train the model
         self.predictor.train_model()
