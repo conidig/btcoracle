@@ -1,4 +1,7 @@
 from communex.module import Module, endpoint
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
@@ -6,6 +9,29 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 from math import sqrt
 import datetime
+
+# Function to generate a key pair
+def generate_keypair():
+    # Generate private key
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+    # Generate public key
+    public_key = private_key.public_key()
+    # Serialize private key
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    # Serialize public key
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    return pem, public_pem
 
 class BTCPricePredictor:
     def __init__(self):
@@ -76,10 +102,10 @@ class Miner(Module):
         return f"The predicted BTC price at {timestamp} UTC is {predicted_price}"
 
 if __name__ == "__main__":
-    key = generate_keypair()
+    private_key, public_key = generate_keypair()
     miner = Miner()
     refill_rate = 1 / 400
     bucket = TokenBucketLimiter(2, refill_rate)
-    server = ModuleServer(miner, key, ip_limiter=bucket, subnets_whitelist=[3])
+    server = ModuleServer(miner, public_key, ip_limiter=bucket, subnets_whitelist=[3])
     app = server.get_fastapi_app()
     uvicorn.run(app, host="127.0.0.1", port=8000)
