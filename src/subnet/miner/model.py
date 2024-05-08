@@ -1,4 +1,4 @@
-from communex.module import Module
+from communex.module import Module, endpoint
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
